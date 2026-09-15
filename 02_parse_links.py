@@ -1,41 +1,49 @@
 import asyncio
+import random
 from playwright.async_api import async_playwright
 
+BASE_URL = "https://www.ozon.by/category/noutbuki-15692/?page="
+PAGES_TO_PARSE = 20
+
 async def main():
+    all_links = set()
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=False,
-            args=["--disable-blink-features=AutomationControlled"]
-        )
-        context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 800}
-        )
-        page = await context.new_page()
+        browser = await p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+        context = browser.contexts[0]
+        page = context.pages[0] if context.pages else await context.new_page()
 
-        print("Загружаем страницу каталога...", flush=True)
-        await page.goto("https://www.ozon.by/category/noutbuki-15692/", wait_until="domcontentloaded", timeout=60000)
-        await page.wait_for_timeout(timeout=3000)
-        print("Прокручиваем страницу...", flush=True)
-        for _ in range(6):
-            await page.mouse.wheel(0,1200)
-            await page.wait_for_timeout(timeout=1000)
+        print(f"Начинаем сбор ссылок с {PAGES_TO_PARSE} страниц каталога...\n")
 
-        links = await page.eval_on_selector_all(
-            'a[href*="/product/"]',
-            'elements => elements.map(e => e.href)'
-        )
+        for page_num in range(1, PAGES_TO_PARSE + 1):
+            url = f"{BASE_URL}{page_num}"
+            print(f"[Страница {page_num}/{PAGES_TO_PARSE}] Переходим на {url}...")
 
-        unique_links = list(set(links))
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            await asyncio.sleep(random.uniform(3.0,5.0))
 
-        print(f"Успешно найдено уникальных ссылок: {len(unique_links)}", flush=True)
+            for _ in range(4):
+                await page.evaluate("window.scrollBy(0, 1000)")
+                await asyncio.sleep(random.uniform(0.9,1.3))
 
-        with open("links.txt", "w", encoding="utf-8") as f:
-            for link in unique_links:
-                f.write(f"{link}\n")
+            links_elements = await page.locator('a[href*="/product/"]').all()
+            page_links = 0
 
-        print("Ссылки сохранены в links.txt", flush=True)
-        await browser.close()
+            for elem in links_elements:
+                href = await elem.get_attribute("href")
+                if href and "/product/" in href:
+                    clean_url = "https://www.ozon.by" + href.split("?")[0]
+                    if clean_url not in all_links:
+                        all_links.add(clean_url)
+                        page_links += 1
 
-if __name__ == '__main__':
+            print(f"   -> Найдено новых ссылок на странице: {page_links} | Всего: {len(all_links)}")
+
+    with open("links.txt","w",encoding="utf-8") as f:
+        for link in all_links:
+            f.write(f"{link}\n")
+
+    print(f"Готово! Собрано уникальных ссылок: {len(all_links)}")
+    print("Ссылки обновлены в файле links.txt")
+
+if __name__ == "__main__":
     asyncio.run(main())
