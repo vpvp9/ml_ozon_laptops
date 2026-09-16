@@ -1,4 +1,5 @@
 import pandas as pd
+import joblib
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import root_mean_squared_error,mean_absolute_error,r2_score
@@ -37,3 +38,13 @@ for name, model in models.items():
     print(f"MAE : {mae:.2f}")
     print(f"RMSE : {rmse:.2f}")
     print(f"R2 : {r2:.2f}")
+
+best_model = models["Градиентный бустинг"]
+
+importances = pd.Series(best_model.feature_importances_, index=feature_cols).sort_values(ascending=False)
+
+print("\n--- ТОП8 фактора,влияющих на цену ---")
+print(importances.head(8))
+
+joblib.dump(best_model, 'laptop_price_model.pkl')
+print("\n Модель успешно сохранена в 'laptop_price_model.pkl'")
