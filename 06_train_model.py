@@ -3,7 +3,7 @@ import joblib
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import root_mean_squared_error,mean_absolute_error,r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 
 df = pd.read_csv("laptops_cleaned.csv")
 
@@ -12,7 +12,7 @@ feature_cols = [
     "ram_gb",
     "ssd_gb",
     "is_discrete_gpu",
-] + [c for c in df_encoded.columns if c.startswith("brand")]
+] + [c for c in df_encoded.columns if c.startswith("brand_")]
 
 X = df_encoded[feature_cols]
 y = df_encoded['price_byn']
